@@ -98,5 +98,5 @@ target_link_libraries(${TARGET_NAME} PRIVATE vccs_interface)
 add_subdirectory(lib/pybind11)
 find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
 
-SET(LIB_NAME vccs_py)
+SET(LIB_NAME vccs_supervoxel)
 pybind11_add_module(${LIB_NAME} ${APP_HEADERS} lib/python_interface.cpp)

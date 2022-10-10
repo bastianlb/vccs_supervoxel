@@ -54,12 +54,45 @@ public:
         cl::RVector3D normal;
     };
 
-    static VCCSSupervoxel create(cl::Array<cl::RPoint3D>&points,
-                                 double resolution,
-                                 double seed_resolution){
-        return VCCSSupervoxel(points, resolution, seed_resolution);
-    };
+    /**
+     * Construct the supervoxel by given [first, last) point cloud and the
+     * resolutions.
+     */
+    template <typename Iterator>
+    VCCSSupervoxel(Iterator first, Iterator last, double resolution,
+                   double seed_resolution)
+        : resolution_(resolution),
+          seed_resolution_(seed_resolution),
+          spatial_importance_(0.4),
+          normal_importance_(1.0) {
+        assert(resolution_ > 0.0);
+        assert(seed_resolution_ >= 2.0 * resolution_);
 
+        size_points_ = std::distance(first, last);
+        assert(size_points_ >= 0);
+
+        Voxelize(first, last, resolution_, true, &voxels_);
+
+        // Compute the normals.
+        for (Voxel& v : voxels_) {
+            cl::Array<cl::RPoint3D> points;
+            for (int index : v.indices) {
+                points.push_back(first[index]);
+            }
+            for (int neighbor : v.neighbors) {
+                const Voxel& v1 = voxels_[neighbor];
+                for (int index : v1.indices) {
+                    points.push_back(first[index]);
+                }
+            }
+
+            cl::geometry::point_cloud::PCAEstimateNormal(points.begin(),
+                                                         points.end(),
+                                                         &v.normal);
+        }
+
+        InitialSupervoxelSeeds();
+    }
 
     void set_spatial_importance(double spatial_importance) {
         assert(spatial_importance >= 0.0);
@@ -134,44 +167,6 @@ public:
     const cl::Array<Voxel>& voxels() const { return voxels_; }
 
 private:
-    /**
-     * Construct the supervoxel by given [first, last) point cloud and the
-     * resolutions.
-     */
-    VCCSSupervoxel(cl::Array<cl::RPoint3D>&raw_points, double resolution,
-                   double seed_resolution)
-        : resolution_(resolution),
-          seed_resolution_(seed_resolution),
-          spatial_importance_(0.4),
-          normal_importance_(1.0) {
-        assert(resolution_ > 0.0);
-        assert(seed_resolution_ >= 2.0 * resolution_);
-
-        size_points_ = std::distance(raw_points.begin(), raw_points.end());
-        assert(size_points_ >= 0);
-
-        Voxelize(raw_points.begin(), raw_points.end(), resolution_, true, &voxels_);
-
-        // Compute the normals.
-        for (Voxel& v : voxels_) {
-            cl::Array<cl::RPoint3D> points;
-            for (int index : v.indices) {
-                points.push_back(points[index]);
-            }
-            for (int neighbor : v.neighbors) {
-                const Voxel& v1 = voxels_[neighbor];
-                for (int index : v1.indices) {
-                    points.push_back(points[index]);
-                }
-            }
-
-            cl::geometry::point_cloud::PCAEstimateNormal(points.begin(),
-                                                         points.end(),
-                                                         &v.normal);
-        }
-
-        InitialSupervoxelSeeds();
-    }
     /**
      * Initial supervoxel seeds.
      */
@@ -367,3 +362,4 @@ private:
 };
 
 #endif // VCCS_SUPERVOXEL_H_
+

@@ -1,0 +1,7 @@
+README.md
+setup.py
+vccs_supervoxel.egg-info/PKG-INFO
+vccs_supervoxel.egg-info/SOURCES.txt
+vccs_supervoxel.egg-info/dependency_links.txt
+vccs_supervoxel.egg-info/not-zip-safe
+vccs_supervoxel.egg-info/top_level.txt

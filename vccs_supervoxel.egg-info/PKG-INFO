@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: vccs-supervoxel
+Version: 0.0.1
+Summary: VCCS supervoxel python extensions
+Home-page: UNKNOWN
+Author: Lennart Bastian
+Author-email: lennartbastian@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6

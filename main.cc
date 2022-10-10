@@ -135,9 +135,9 @@ int main() {
     // Note that, you may need to change the resolution of voxel.
     const double voxel_resolution = 0.03;
 
-    VCCSSupervoxel vccs = VCCSSupervoxel::create(points,
-                                                 voxel_resolution,
-                                                 resolution);
+    VCCSSupervoxel vccs(points.begin(), points.end(),
+                        voxel_resolution,
+                        resolution);
     cl::Array<int> vccs_labels;
     cl::Array<VCCSSupervoxel::Supervoxel> vccs_supervoxels;
     vccs.Segment(&vccs_labels, &vccs_supervoxels);
