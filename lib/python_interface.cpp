@@ -25,8 +25,8 @@ cl::Array<cl::RGB32Color> random_colors(cl::Array<cl::RPoint3D>& points, cl::Arr
   return colors;
 }
 
-py::array py_segment(py::array_t<double, py::array::c_style | py::array::forcecast> array,
-                     float voxel_resolution, float resolution)
+py::array py_segment(py::array_t<double, py::array::c_style | py::array::forcecast>& array,
+                     const float voxel_resolution, const float resolution)
 {
   // check input dimensions
   if ( array.ndim()     != 2 )
@@ -50,11 +50,13 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   }
 
   // call pure C++ function
+  //py::gil_scoped_release release;
   py::print("Calling supervoxel segmentation");
   VCCSSupervoxel vccs(points.begin(), points.end(), voxel_resolution, resolution);
   cl::Array<int> vccs_labels;
   cl::Array<VCCSSupervoxel::Supervoxel> vccs_supervoxels;
   vccs.Segment(&vccs_labels, &vccs_supervoxels);
+  //py::gil_scoped_acquire acquire;
 
   // TODO: replace this with actual pointcloud colors
   cl::Array<cl::RGB32Color> colors = random_colors(points, vccs_labels, vccs_supervoxels.size());
