@@ -5,8 +5,8 @@
 #include "codelibrary/geometry/util/distance_3d.h"
 #include "codelibrary/util/tree/kd_tree.h"
 
-#include "vccs_knn_supervoxel.h"
-#include "vccs_supervoxel.h"
+#include "include/vccs_knn_supervoxel.h"
+#include "include/vccs_supervoxel.h"
 
 /// Point with Normal.
 struct PointWithNormal : cl::RPoint3D {
@@ -64,7 +64,7 @@ void WritePoints(const char* filename,
 int main() {
     LOG_ON(INFO);
 
-    const std::string filename = "test.xyz";
+    const std::string filename = "./scannet.xyz";
 
     cl::Array<cl::RPoint3D> points;
     cl::Array<cl::RGB32Color> colors;
@@ -102,7 +102,6 @@ int main() {
     }
     kdtree.SwapPoints(&points);
 
-    LOG(INFO) << "Start supervoxel segmentation...";
 
     cl::Array<PointWithNormal> oriented_points(n_points);
     for (int i = 0; i < n_points; ++i) {
@@ -115,6 +114,7 @@ int main() {
     const double resolution = 1.0;
     VCCSMetric metric(resolution);
     cl::Array<int> labels, supervoxels;
+    // LOG(INFO) << "Start supervoxel segmentation...";
     cl::geometry::point_cloud::SupervoxelSegmentation(oriented_points,
                                                       neighbors,
                                                       resolution,
@@ -135,9 +135,9 @@ int main() {
     // Note that, you may need to change the resolution of voxel.
     const double voxel_resolution = 0.03;
 
-    VCCSSupervoxel vccs(points.begin(), points.end(),
-                        voxel_resolution,
-                        resolution);
+    VCCSSupervoxel vccs = VCCSSupervoxel::create(points,
+                                                 voxel_resolution,
+                                                 resolution);
     cl::Array<int> vccs_labels;
     cl::Array<VCCSSupervoxel::Supervoxel> vccs_supervoxels;
     vccs.Segment(&vccs_labels, &vccs_supervoxels);
@@ -152,8 +152,9 @@ int main() {
 
     LOG(INFO) << "Start KNN variant of VCCS supervoxel segmentation...";
 
+    const double knn_resolution = 0.1;
     kdtree.SwapPoints(&points);
-    VCCSKNNSupervoxel vccs_knn(kdtree, resolution);
+    VCCSKNNSupervoxel vccs_knn(kdtree, knn_resolution);
     cl::Array<int> vccs_knn_labels;
     cl::Array<VCCSKNNSupervoxel::Supervoxel> vccs_knn_supervoxels;
     vccs_knn.Segment(&vccs_knn_labels, &vccs_knn_supervoxels);
