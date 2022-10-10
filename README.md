@@ -1,6 +1,8 @@
 # Supervoxel for 3D point clouds
 
-For python install, run `pip install .`.
+Make sure to clone with `--recursive`. Else run `git submodule init && git submodule update`.
+First make sure numpy and wheel are installed: `pip install numpy wheel`
+Then, for python install, run `pip install .`.
 
 Then run the vccs_supervoxel.segment function as demonstrated in [scripts/demo.py](scripts/demo.py).
 
