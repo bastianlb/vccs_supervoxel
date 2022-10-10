@@ -67,12 +67,18 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
     result.push_back(points[i].x);
     result.push_back(points[i].y);
     result.push_back(points[i].z);
+    result.push_back(pos[i * W + 3]);
+    result.push_back(pos[i * W + 4]);
+    result.push_back(pos[i * W + 5]);
     result.push_back(static_cast<double>(colors[i].red()));
     result.push_back(static_cast<double>(colors[i].green()));
     result.push_back(static_cast<double>(colors[i].blue()));
     // add the label from the segmentation as output..
     result.push_back(static_cast<double>(vccs_labels[i]));
   }
+
+  // also copy standard colors
+  W = W + 3;
 
   // returns same shape but with one additional point i.e. supervoxel cluster
   std::vector<ssize_t> shape   = { N, W + 1};

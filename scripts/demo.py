@@ -27,11 +27,15 @@ if __name__ == "__main__":
     # on it's own. Later we could even use scannet's surface normals
     out = segment(pts[:, :6], 0.1, 0.3)
 
-    # out should now have an additional cluster id in pos 7
-    assert out.shape[1] == 7
+    # out should now have an additional cluster id in pos 10
+    # as well as random colors for the supervoxels to be optionally
+    # visualized
+    assert out.shape[1] == 10
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(out[:, :3])
-    pcd.colors = o3d.utility.Vector3dVector(out[:, 3:6] / 255.0)
+    pcd.colors = o3d.utility.Vector3dVector(out[:, 6:9] / 255.0)
+    # or original colors
+    # pcd.colors = o3d.utility.Vector3dVector(out[:, 3:6] / 255.0)
 
     o3d.visualization.draw_geometries([pcd])
