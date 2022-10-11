@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # for now the function calculates surface normals for the clustering
     # on it's own. Later we could even use scannet's surface normals
-    out = segment(pts[:, :6], 0.1, 0.3)
+    out = segment(pts[:, :9], 0.1, 0.6)
 
     # out should now have an additional cluster id in pos 10
     # as well as random colors for the supervoxels to be optionally

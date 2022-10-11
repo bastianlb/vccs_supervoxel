@@ -77,6 +77,7 @@ SET(APP_HEADERS
 add_library(vccs_interface
   "${CMAKE_CURRENT_SOURCE_DIR}/include/vccs_knn_supervoxel.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/vccs_supervoxel.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/rgb2lab.h"
 )
 
 target_include_directories(vccs_interface INTERFACE ${CMAKE_CURRENT_SOURCE_DIRECTORES} include)

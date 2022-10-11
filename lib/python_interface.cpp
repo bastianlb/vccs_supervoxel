@@ -6,10 +6,43 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
-#include "include/vccs_supervoxel.h"
 #include "codelibrary/geometry/io/xyz_io.h"
+#include "codelibrary/geometry/point_cloud/pca_estimate_normals.h"
+#include "codelibrary/geometry/point_cloud/supervoxel_segmentation.h"
+#include "codelibrary/geometry/util/distance_3d.h"
+#include "codelibrary/util/tree/kd_tree.h"
+#include "include/vccs_supervoxel.h"
+#include "include/rgb2lab.h"
 
 namespace py = pybind11;
+
+struct ColoredPointWithNormal : cl::RPoint3D {
+    ColoredPointWithNormal() {}
+
+    cl::RVector3D normal;
+    RGB rgb;
+    const LAB get_lab() {
+      return RGB2LAB(rgb);
+    }
+};
+
+class VCCSMetric {
+public:
+    explicit VCCSMetric(double resolution)
+        : resolution_(resolution) {}
+
+    double operator() (const ColoredPointWithNormal& p1,
+                       const ColoredPointWithNormal& p2) const {
+        LAB l1 = RGB2LAB(p1.rgb);
+        LAB l2 = RGB2LAB(p2.rgb);
+        //0.4 * lab_dist(l1, l2);
+        return 1.0 - std::fabs(p1.normal * p2.normal) +
+               cl::geometry::Distance(p1, p2) / resolution_ * 0.4;
+    }
+
+private:
+    double resolution_;
+};
 
 cl::Array<cl::RGB32Color> random_colors(cl::Array<cl::RPoint3D>& points, cl::Array<int> labels, int n_supervoxels) {
   // make some colors
@@ -31,44 +64,92 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   // check input dimensions
   if ( array.ndim()     != 2 )
     throw std::runtime_error("Input should be 2-D NumPy array");
-  if ( array.shape()[1] != 6 )
-    throw std::runtime_error("Input should have size [N,6] i.e. [N, xyzrgb]");
+  if ( array.shape()[1] != 9 )
+    throw std::runtime_error("Input should have size [N,9] i.e. [N, xyz rgb nxnynz]");
 
-  size_t N = array.shape()[0];
-  size_t W = array.shape()[1];
+  ssize_t N = array.shape()[0];
+  ssize_t W = array.shape()[1];
   std::vector<double> pos(array.size());
   // copy py::array -> std::vector
   std::memcpy(pos.data(),array.data(),array.size()*sizeof(double));
-  // allocate std::vector (to pass to the C++ function)
-  cl::Array<cl::RPoint3D> points;
 
-  // copy py::array -> cl::Array
+  // initialze first array for points for KDTree
   py::print("copying ", N," points to cl::RPoint3d");
+  cl::Array<cl::RPoint3D> points(N);
   for (int i = 0; i < N; i++) {
     // copy XYZ data into RPoints
-    points.push_back(cl::RPoint3D(pos.data()[i * W + 0], pos.data()[i * W + 1], pos.data()[i * W + 2]));
+    points[i].x = pos.data()[i * W + 0];
+    points[i].y = pos.data()[i * W + 1];
+    points[i].z = pos.data()[i * W + 2];
   }
+
+  cl::KDTree<cl::RPoint3D> kdtree;
+  kdtree.SwapPoints(&points);
+  const int k_neighbors = 15;
+  assert(k_neighbors < N);
+
+  cl::Array<ColoredPointWithNormal> oriented_points(N);
+  for (int i = 0; i < N; i++) {
+    // copy XYZ data into RPoints
+    oriented_points[i].x = pos.data()[i * W + 0];
+    oriented_points[i].y = pos.data()[i * W + 1];
+    oriented_points[i].z = pos.data()[i * W + 2];
+    RGB rgb{};
+    rgb.r = pos.data()[i * W + 3];
+    rgb.g = pos.data()[i * W + 4];
+    rgb.b = pos.data()[i * W + 5];
+    oriented_points[i].rgb = rgb;
+    cl::RVector3D normal{};
+    normal.x = pos.data()[i * W + 6];
+    normal.y = pos.data()[i * W + 7];
+    normal.z = pos.data()[i * W + 8];
+    oriented_points[i].normal = normal;
+  }
+
+  py::print("Running KDTree.");
+  //cl::Array<cl::RVector3D> normals(N);
+  cl::Array<cl::Array<int> > neighbors(N);
+  cl::Array<cl::RPoint3D> neighbor_points(k_neighbors);
+  for (int i = 0; i < N; ++i) {
+      kdtree.FindKNearestNeighbors(kdtree.points()[i], k_neighbors,
+                                   &neighbors[i]);
+      for (int k = 0; k < k_neighbors; ++k) {
+          neighbor_points[k] = kdtree.points()[neighbors[i][k]];
+      }
+      // we just use normals from scannet
+      /*cl::geometry::point_cloud::PCAEstimateNormal(neighbor_points.begin(),
+                                                   neighbor_points.end(),
+                                                   &normals[i]);
+      */
+  }
+  kdtree.SwapPoints(&points);
+
+  py::print("Calling supervoxel segmentation");
+  VCCSMetric metric(resolution);
+  cl::Array<int> labels, supervoxels;
+  // LOG(INFO) << "Start supervoxel segmentation...";
+  cl::geometry::point_cloud::SupervoxelSegmentation(oriented_points,
+                                                    neighbors,
+                                                    resolution,
+                                                    metric,
+                                                    &supervoxels,
+                                                    &labels);
 
   // call pure C++ function
   //py::gil_scoped_release release;
-  py::print("Calling supervoxel segmentation");
-  VCCSSupervoxel vccs(points.begin(), points.end(), voxel_resolution, resolution);
-  cl::Array<int> vccs_labels;
-  cl::Array<VCCSSupervoxel::Supervoxel> vccs_supervoxels;
-  vccs.Segment(&vccs_labels, &vccs_supervoxels);
   //py::gil_scoped_acquire acquire;
 
   // TODO: replace this with actual pointcloud colors
-  cl::Array<cl::RGB32Color> colors = random_colors(points, vccs_labels, vccs_supervoxels.size());
+  cl::Array<cl::RGB32Color> colors = random_colors(points, labels, supervoxels.size());
 
   // todo, we can allocate this explicitely
   std::vector<double> result;
 
   py::print("Copying to output");
-  for (int i = 0; i < points.size(); i++) {
-    result.push_back(points[i].x);
-    result.push_back(points[i].y);
-    result.push_back(points[i].z);
+  for (int i = 0; i < oriented_points.size(); i++) {
+    result.push_back(oriented_points[i].x);
+    result.push_back(oriented_points[i].y);
+    result.push_back(oriented_points[i].z);
     result.push_back(pos[i * W + 3]);
     result.push_back(pos[i * W + 4]);
     result.push_back(pos[i * W + 5]);
@@ -76,11 +157,8 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
     result.push_back(static_cast<double>(colors[i].green()));
     result.push_back(static_cast<double>(colors[i].blue()));
     // add the label from the segmentation as output..
-    result.push_back(static_cast<double>(vccs_labels[i]));
+    result.push_back(static_cast<double>(labels[i]));
   }
-
-  // also copy standard colors
-  W = W + 3;
 
   // returns same shape but with one additional point i.e. supervoxel cluster
   std::vector<ssize_t> shape   = { N, W + 1};
