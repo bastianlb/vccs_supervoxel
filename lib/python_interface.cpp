@@ -33,9 +33,11 @@ public:
 
     double operator() (const ColoredPointWithNormal& p1,
                        const ColoredPointWithNormal& p2) const {
-        LAB l1 = RGB2LAB(p1.rgb);
-        LAB l2 = RGB2LAB(p2.rgb);
-        //0.4 * lab_dist(l1, l2);
+        // const size_t m2 = 16;
+        // LAB l1 = RGB2LAB(p1.rgb);
+        // LAB l2 = RGB2LAB(p2.rgb);
+        // 0.4 * lab_dist(l1, l2) / m2;
+        // py::print(p1.rgb.r, p1.rgb.b, p1.rgb.g, l1.l, l1.a, l1.b);
         return 1.0 - std::fabs(p1.normal * p2.normal) +
                cl::geometry::Distance(p1, p2) / resolution_ * 0.4;
     }
@@ -88,6 +90,26 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   const int k_neighbors = 15;
   assert(k_neighbors < N);
 
+
+  py::print("Running KDTree.");
+  // cl::Array<cl::RVector3D> normals(N);
+  cl::Array<cl::Array<int> > neighbors(N);
+  cl::Array<cl::RPoint3D> neighbor_points(k_neighbors);
+  for (int i = 0; i < N; ++i) {
+      kdtree.FindKNearestNeighbors(kdtree.points()[i], k_neighbors,
+                                   &neighbors[i]);
+      for (int k = 0; k < k_neighbors; ++k) {
+          neighbor_points[k] = kdtree.points()[neighbors[i][k]];
+      }
+      // we just use normals from scannet
+      /*
+      cl::geometry::point_cloud::PCAEstimateNormal(neighbor_points.begin(),
+                                                   neighbor_points.end(),
+                                                   &normals[i]);
+      */
+  }
+  kdtree.SwapPoints(&points);
+
   cl::Array<ColoredPointWithNormal> oriented_points(N);
   for (int i = 0; i < N; i++) {
     // copy XYZ data into RPoints
@@ -103,26 +125,11 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
     normal.x = pos.data()[i * W + 6];
     normal.y = pos.data()[i * W + 7];
     normal.z = pos.data()[i * W + 8];
+    //normal.x = normals[i].x;
+    //normal.y = normals[i].y;
+    //normal.z = normals[i].z;
     oriented_points[i].normal = normal;
   }
-
-  py::print("Running KDTree.");
-  //cl::Array<cl::RVector3D> normals(N);
-  cl::Array<cl::Array<int> > neighbors(N);
-  cl::Array<cl::RPoint3D> neighbor_points(k_neighbors);
-  for (int i = 0; i < N; ++i) {
-      kdtree.FindKNearestNeighbors(kdtree.points()[i], k_neighbors,
-                                   &neighbors[i]);
-      for (int k = 0; k < k_neighbors; ++k) {
-          neighbor_points[k] = kdtree.points()[neighbors[i][k]];
-      }
-      // we just use normals from scannet
-      /*cl::geometry::point_cloud::PCAEstimateNormal(neighbor_points.begin(),
-                                                   neighbor_points.end(),
-                                                   &normals[i]);
-      */
-  }
-  kdtree.SwapPoints(&points);
 
   py::print("Calling supervoxel segmentation");
   VCCSMetric metric(resolution);
