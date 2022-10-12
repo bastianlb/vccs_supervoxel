@@ -33,9 +33,11 @@ public:
 
     double operator() (const ColoredPointWithNormal& p1,
                        const ColoredPointWithNormal& p2) const {
-        LAB l1 = RGB2LAB(p1.rgb);
-        LAB l2 = RGB2LAB(p2.rgb);
-        //0.4 * lab_dist(l1, l2);
+        // const size_t m2 = 16;
+        // LAB l1 = RGB2LAB(p1.rgb);
+        // LAB l2 = RGB2LAB(p2.rgb);
+        // 0.4 * lab_dist(l1, l2) / m2;
+        // py::print(p1.rgb.r, p1.rgb.b, p1.rgb.g, l1.l, l1.a, l1.b);
         return 1.0 - std::fabs(p1.normal * p2.normal) +
                cl::geometry::Distance(p1, p2) / resolution_ * 0.4;
     }
