@@ -76,7 +76,7 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   std::memcpy(pos.data(),array.data(),array.size()*sizeof(double));
 
   // initialze first array for points for KDTree
-  py::print("copying ", N," points to cl::RPoint3d");
+  //py::print("copying ", N," points to cl::RPoint3d");
   cl::Array<cl::RPoint3D> points(N);
   for (int i = 0; i < N; i++) {
     // copy XYZ data into RPoints
@@ -91,7 +91,7 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   assert(k_neighbors < N);
 
 
-  py::print("Running KDTree.");
+  //py::print("Running KDTree.");
   // cl::Array<cl::RVector3D> normals(N);
   cl::Array<cl::Array<int> > neighbors(N);
   cl::Array<cl::RPoint3D> neighbor_points(k_neighbors);
@@ -131,7 +131,7 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
     oriented_points[i].normal = normal;
   }
 
-  py::print("Calling supervoxel segmentation");
+  //py::print("Calling supervoxel segmentation");
   VCCSMetric metric(resolution);
   cl::Array<int> labels, supervoxels;
   // LOG(INFO) << "Start supervoxel segmentation...";
@@ -152,7 +152,7 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   // todo, we can allocate this explicitely
   std::vector<double> result;
 
-  py::print("Copying to output");
+ // py::print("Copying to output");
   for (int i = 0; i < oriented_points.size(); i++) {
     result.push_back(oriented_points[i].x);
     result.push_back(oriented_points[i].y);
@@ -170,8 +170,8 @@ py::array py_segment(py::array_t<double, py::array::c_style | py::array::forceca
   // returns same shape but with one additional point i.e. supervoxel cluster
   std::vector<ssize_t> shape   = { N, W + 1};
   std::vector<ssize_t> strides = { sizeof(double)*(W + 1) , sizeof(double) };
-  py::print("Returning values..");
-  py::print(result.size(), shape);
+  //py::print("Returning values..");
+  //py::print(result.size(), shape);
 
   // return 2-D NumPy array
   return py::array(py::buffer_info(
